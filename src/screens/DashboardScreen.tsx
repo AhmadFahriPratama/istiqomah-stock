@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import db from '../db';
 import { Package, TrendingUp, AlertCircle, RefreshCw } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';

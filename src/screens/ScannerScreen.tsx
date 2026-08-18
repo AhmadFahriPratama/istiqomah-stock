@@ -1,22 +1,23 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useZxing } from 'react-zxing';
 import db from '../db';
 import { useNavigate } from 'react-router-dom';
 
 export default function ScannerScreen() {
-  const [result, setResult] = useState<string>('');
+  const [, setResult] = useState<string>('');
   const [paused, setPaused] = useState(false);
   const navigate = useNavigate();
 
   const { ref } = useZxing({
     paused,
-    onDecodeResult(decodedResult) {
-      const text = decodedResult.getText();
+    onDecodeResult(decodedResult: any) {
+      const text = decodedResult.getText ? decodedResult.getText() : decodedResult.rawValue || decodedResult.text;
       setResult(text);
       setPaused(true);
       handleScan(text);
     },
-    onError(error) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    onError(_error) {
       // ignore
     }
   });

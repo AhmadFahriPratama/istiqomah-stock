@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Info, LogOut, Trash2 } from 'lucide-react';
 import db from '../db';
 
