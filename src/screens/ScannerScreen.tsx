@@ -42,7 +42,7 @@ export default function ScannerScreen({ navigation }: any) {
   return (
     <View style={tw`flex-1 bg-black`}>
       <CameraView
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
         onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
         barcodeScannerSettings={{
           barcodeTypes: ["qr", "ean13", "ean8", "upc_a", "upc_e"],

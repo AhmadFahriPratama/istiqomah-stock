@@ -39,7 +39,7 @@ export default function FloorScreen() {
             key={floor.id} 
             style={tw`bg-white p-5 rounded-3xl shadow-sm border border-gray-100 mb-4 flex-row items-center`}
           >
-            <View style={[tw`p-4 rounded-2xl mr-4`, { backgroundColor: \`\${floor.color}15\` }]}>
+            <View style={[tw`p-4 rounded-2xl mr-4`, { backgroundColor: `${floor.color}15` }]}>
               {getIcon(floor.icon, floor.color)}
             </View>
             <View style={tw`flex-1`}>
