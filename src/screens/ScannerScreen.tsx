@@ -1,82 +1,64 @@
-import React, { useState, useEffect } from 'react';
-import { Text, View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Camera, CameraView } from 'expo-camera';
-import { ScanLine, X } from 'lucide-react-native';
-import tw from '../styles/tw';
+import React, { useState } from 'react';
+import { useZxing } from 'react-zxing';
+import db from '../db';
+import { useNavigate } from 'react-router-dom';
 
-export default function ScannerScreen({ navigation }: any) {
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [scanned, setScanned] = useState(false);
-  const [scannedData, setScannedData] = useState<string | null>(null);
+export default function ScannerScreen() {
+  const [result, setResult] = useState<string>('');
+  const [paused, setPaused] = useState(false);
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    const getCameraPermissions = async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === 'granted');
-    };
+  const { ref } = useZxing({
+    paused,
+    onDecodeResult(decodedResult) {
+      const text = decodedResult.getText();
+      setResult(text);
+      setPaused(true);
+      handleScan(text);
+    },
+    onError(error) {
+      // ignore
+    }
+  });
 
-    getCameraPermissions();
-  }, []);
-
-  const handleBarcodeScanned = ({ type, data }: { type: string; data: string }) => {
-    setScanned(true);
-    setScannedData(data);
-    // Di aplikasi nyata, navigasi ke detail item atau add transaction
-    alert(`Barang dengan Barcode ${data} berhasil dipindai!`);
+  const handleScan = async (scannedId: string) => {
+    const item = await db.items.get(scannedId);
+    if (item) {
+      alert(`Barang Ditemukan: ${item.name} (Stok: ${item.quantity})`);
+      // Optionally route to a detail view
+      navigate('/floor');
+    } else {
+      if (confirm(`Barang dengan Barcode ${scannedId} tidak ditemukan. Tambah baru?`)) {
+        // Just route to floor for now where they can click Add
+        navigate('/floor');
+      } else {
+        setPaused(false);
+      }
+    }
   };
 
-  if (hasPermission === null) {
-    return <View style={tw`flex-1 bg-black`} />;
-  }
-  if (hasPermission === false) {
-    return (
-      <View style={tw`flex-1 justify-center items-center bg-white`}>
-        <Text style={tw`text-lg font-medium text-gray-800`}>Akses Kamera Ditolak</Text>
-        <Text style={tw`text-sm text-gray-500 mt-2 text-center px-8`}>
-          Mohon izinkan akses kamera di pengaturan untuk menggunakan fitur Scanner Barcode.
-        </Text>
-      </View>
-    );
-  }
-
   return (
-    <View style={tw`flex-1 bg-black`}>
-      <CameraView
-        style={StyleSheet.absoluteFill}
-        onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
-        barcodeScannerSettings={{
-          barcodeTypes: ["qr", "ean13", "ean8", "upc_a", "upc_e"],
-        }}
-      >
-        {/* Overlay Scanner */}
-        <View style={tw`flex-1 justify-center items-center`}>
-          <View style={tw`w-64 h-64 border-2 border-white rounded-2xl bg-white/10 justify-center items-center`}>
-             <ScanLine color="white" size={48} style={tw`opacity-50`} />
-          </View>
-          <Text style={tw`text-white font-medium text-lg mt-8 bg-black/50 px-4 py-2 rounded-full overflow-hidden`}>
-            Arahkan kamera ke Barcode / QR Code
-          </Text>
-        </View>
+    <div className="h-full bg-black flex flex-col items-center justify-center relative">
+      <video ref={ref} className="h-full w-full object-cover" />
+      
+      {/* Overlay for Scanner */}
+      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none">
+        <div className="w-64 h-64 border-4 border-primary-500 rounded-3xl opacity-80" />
+        <p className="text-white mt-8 font-medium bg-black/50 px-4 py-2 rounded-full">
+          Arahkan kamera ke Barcode
+        </p>
+      </div>
 
-        {/* Top Actions */}
-        <View style={tw`absolute top-12 left-6 right-6 flex-row justify-between items-center`}>
-          <Text style={tw`text-white font-bold text-2xl drop-shadow-md`}>Scanner</Text>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={tw`bg-black/40 p-2 rounded-full`}>
-            <X color="white" size={24} />
-          </TouchableOpacity>
-        </View>
-
-        {scanned && (
-          <View style={tw`absolute bottom-10 left-6 right-6`}>
-             <TouchableOpacity 
-               style={tw`bg-primary py-4 rounded-2xl shadow-lg items-center`}
-               onPress={() => setScanned(false)}
-             >
-               <Text style={tw`text-white font-bold text-lg`}>Scan Lagi</Text>
-             </TouchableOpacity>
-          </View>
-        )}
-      </CameraView>
-    </View>
+      {paused && (
+        <div className="absolute bottom-24 z-20">
+          <button 
+            onClick={() => { setPaused(false); setResult(''); }}
+            className="bg-white text-black font-bold px-6 py-3 rounded-full shadow-lg"
+          >
+            Scan Ulang
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

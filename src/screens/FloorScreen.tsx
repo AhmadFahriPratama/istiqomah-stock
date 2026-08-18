@@ -1,57 +1,139 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
-import { Layers, ChevronRight, ShoppingBag, Shirt, Sofa, Archive } from 'lucide-react-native';
-import tw from '../styles/tw';
-import * as SQLite from 'expo-sqlite';
+import React, { useState } from 'react';
+import db, { type Item } from '../db';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { Search, Plus, Edit2, Trash2 } from 'lucide-react';
 
 export default function FloorScreen() {
-  const [floors, setFloors] = useState<any[]>([]);
+  const [search, setSearch] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<Item | null>(null);
 
-  useEffect(() => {
-    const fetchFloors = async () => {
-      const db = await SQLite.openDatabaseAsync('istiqomah-stock.db');
-      const allRows = await db.getAllAsync('SELECT * FROM floors ORDER BY sort_order ASC');
-      setFloors(allRows);
+  const items = useLiveQuery(
+    () => db.items
+      .filter(item => item.name.toLowerCase().includes(search.toLowerCase()) || item.id.includes(search))
+      .toArray(),
+    [search]
+  ) || [];
+
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    const newItem: Item = {
+      id: formData.get('id') as string,
+      name: formData.get('name') as string,
+      quantity: parseInt(formData.get('quantity') as string, 10),
+      location: formData.get('location') as string,
+      updatedAt: Date.now()
     };
-    fetchFloors();
-  }, []);
 
-  const getIcon = (name: string, color: string) => {
-    switch (name) {
-      case 'shopping-bag': return <ShoppingBag color={color} size={32} />;
-      case 'shirt': return <Shirt color={color} size={32} />;
-      case 'sofa': return <Sofa color={color} size={32} />;
-      case 'archive': return <Archive color={color} size={32} />;
-      default: return <Layers color={color} size={32} />;
+    try {
+      if (editingItem && editingItem.id !== newItem.id) {
+        // If ID changed, delete old one and put new
+        await db.items.delete(editingItem.id);
+      }
+      await db.items.put(newItem);
+      setIsModalOpen(false);
+      setEditingItem(null);
+    } catch (error) {
+      alert('Error saving item: ' + error);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Yakin ingin menghapus item ini?')) {
+      await db.items.delete(id);
     }
   };
 
   return (
-    <SafeAreaView style={tw`flex-1 bg-[#F8FAFC]`}>
-      <View style={tw`px-6 pt-12 pb-6 bg-white border-b border-gray-100`}>
-        <Text style={tw`text-gray-900 font-bold text-3xl tracking-tight`}>Lantai Penyimpanan</Text>
-        <Text style={tw`text-gray-500 font-medium mt-1`}>Pilih kategori untuk melihat stok</Text>
-      </View>
+    <div className="p-6 h-full flex flex-col">
+      <header className="mb-6 mt-4 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Manajemen Stok</h1>
+          <p className="text-gray-500 text-sm">{items.length} Barang terdaftar</p>
+        </div>
+        <button 
+          onClick={() => { setEditingItem(null); setIsModalOpen(true); }}
+          className="bg-primary-600 text-white p-3 rounded-full shadow-md hover:bg-primary-700 transition"
+        >
+          <Plus size={24} />
+        </button>
+      </header>
 
-      <ScrollView contentContainerStyle={tw`p-6 pb-20`}>
-        {floors.map((floor) => (
-          <TouchableOpacity 
-            key={floor.id} 
-            style={tw`bg-white p-5 rounded-3xl shadow-sm border border-gray-100 mb-4 flex-row items-center`}
-          >
-            <View style={[tw`p-4 rounded-2xl mr-4`, { backgroundColor: `${floor.color}15` }]}>
-              {getIcon(floor.icon, floor.color)}
-            </View>
-            <View style={tw`flex-1`}>
-              <Text style={tw`text-gray-900 font-bold text-xl`}>{floor.name}</Text>
-              <Text style={tw`text-gray-500 text-sm mt-1`}>{floor.description}</Text>
-            </View>
-            <View style={tw`bg-gray-50 p-2 rounded-full`}>
-              <ChevronRight color="#94A3B8" size={24} />
-            </View>
-          </TouchableOpacity>
+      <div className="relative mb-6">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <Search className="text-gray-400" size={20} />
+        </div>
+        <input
+          type="text"
+          placeholder="Cari ID atau nama barang..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent shadow-sm"
+        />
+      </div>
+
+      <div className="flex-1 overflow-y-auto space-y-3 pb-4">
+        {items.map(item => (
+          <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+            <div>
+              <h3 className="font-semibold text-gray-800">{item.name}</h3>
+              <p className="text-xs text-gray-500">ID: {item.id} &bull; {item.location}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="font-bold text-primary-600 bg-primary-50 px-3 py-1 rounded-lg">
+                {item.quantity}
+              </span>
+              <button onClick={() => { setEditingItem(item); setIsModalOpen(true); }} className="text-gray-400 hover:text-blue-500 p-1">
+                <Edit2 size={18} />
+              </button>
+              <button onClick={() => handleDelete(item.id)} className="text-gray-400 hover:text-red-500 p-1">
+                <Trash2 size={18} />
+              </button>
+            </div>
+          </div>
         ))}
-      </ScrollView>
-    </SafeAreaView>
+        {items.length === 0 && (
+          <div className="text-center py-10 text-gray-500">
+            Tidak ada barang ditemukan.
+          </div>
+        )}
+      </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-800">{editingItem ? 'Edit Barang' : 'Tambah Barang Baru'}</h2>
+            </div>
+            <form onSubmit={handleSave} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">ID / Barcode</label>
+                <input required name="id" defaultValue={editingItem?.id} type="text" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:outline-none" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nama Barang</label>
+                <input required name="name" defaultValue={editingItem?.name} type="text" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:outline-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Kuantitas</label>
+                  <input required name="quantity" defaultValue={editingItem?.quantity ?? 0} min="0" type="number" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Lokasi/Rak</label>
+                  <input required name="location" defaultValue={editingItem?.location} type="text" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:outline-none" />
+                </div>
+              </div>
+              <div className="pt-4 flex gap-3">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition">Batal</button>
+                <button type="submit" className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 transition">Simpan</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
