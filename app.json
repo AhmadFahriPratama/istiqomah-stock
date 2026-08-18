@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "istiqomah-stock",
-    "slug": "istiqomah-stock",
+    "name": "Istiqomah Stock",
+    "slug": "istiqomah-stock",`n    "android": {`n      "package": "com.istiqomah.stock"`n    },
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
